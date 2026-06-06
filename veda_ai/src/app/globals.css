@@ -44,3 +44,43 @@ body {
 .animate-fadeIn {
   animation: fadeIn 0.15s ease-out;
 }
+
+/* Print Styling for Assessment PDF */
+@media print {
+  body, html {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 12pt;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  /* Make input fields look like clean lines in print */
+  input[type="text"] {
+    border: none !important;
+    border-bottom: 1px solid #000000 !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    color: #000000 !important;
+  }
+
+  /* Force page breaks cleanly */
+  .break-inside-avoid {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Standard exam styling settings */
+  * {
+    color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+}

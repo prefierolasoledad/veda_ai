@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import Sidebar from '@/components/Sidebar';
 import Header from '@/components/Header';
+import { api } from '@/services/api';
+import { socketService } from '@/services/socket';
 
 interface Assignment {
   id: string;
@@ -108,17 +110,31 @@ export default function Home() {
     'Finalizing assignment output...',
   ];
 
+  const fetchAssignments = async () => {
+    const res = await api.listAssignments();
+    if (res.success && res.data) {
+      const mapped: Assignment[] = res.data.map((a: any) => ({
+        id: a._id,
+        title: a.title,
+        subject: a.subject,
+        points: a.totalMarks,
+        timeLimit: a.timeLimit || 60,
+        difficulty: a.difficulty,
+        questionTypes: a.questionRows ? Array.from(new Set(a.questionRows.map((r: any) => r.type))) : [],
+        createdAt: a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-GB').replace(/\//g, '-') : getFormattedDate(0),
+        dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString('en-GB').replace(/\//g, '-') : getFormattedDate(1),
+        status: a.status === 'completed' ? 'Generated' : 'Active',
+      }));
+      setAssignments(mapped);
+    }
+  };
+
   // Load assignments on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('veda_assignments');
-      if (stored) {
-        setAssignments(JSON.parse(stored));
-      } else {
-        setAssignments([]);
-      }
+    if (user) {
+      fetchAssignments();
     }
-  }, []);
+  }, [user]);
 
   // Listen to document click to close active dropdowns (3-dot menu + filter panel)
   useEffect(() => {
@@ -129,63 +145,6 @@ export default function Home() {
     document.addEventListener('click', handleOutsideClick);
     return () => document.removeEventListener('click', handleOutsideClick);
   }, []);
-
-  const saveAssignments = (list: Assignment[]) => {
-    setAssignments(list);
-    localStorage.setItem('veda_assignments', JSON.stringify(list));
-    window.dispatchEvent(new Event('veda_assignments_changed'));
-  };
-
-  // Animate generation steps
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (isGenerating) {
-      if (generationStep < generationSteps.length - 1) {
-        timer = setTimeout(() => {
-          setGenerationStep((prev) => prev + 1);
-        }, 600);
-      } else {
-        timer = setTimeout(() => {
-          setIsGenerating(false);
-          setShowCreateModal(false);
-          
-          const newAssign: Assignment = {
-            id: Math.random().toString(36).substring(2, 9),
-            title: form.title || 'Untitled Assessment',
-            subject: form.subject,
-            points: questionRows.reduce((sum, r) => sum + r.count * r.marks, 0),
-            timeLimit: Number(form.timeLimit),
-            difficulty: form.difficulty,
-            questionTypes: Array.from(new Set(questionRows.map((r) => r.type))),
-            createdAt: getFormattedDate(0),
-            dueDate: dueDate || getFormattedDate(1),
-            status: 'Generated',
-          };
-          saveAssignments([newAssign, ...assignments]);
-          
-          // Reset form
-          setForm({
-            title: '',
-            subject: 'Physics',
-            points: 100,
-            timeLimit: 60,
-            difficulty: 'Medium',
-            questionTypes: ['mcq'],
-          });
-          setQuestionRows([
-            { type: 'mcq', count: 4, marks: 1 },
-            { type: 'short', count: 3, marks: 2 },
-            { type: 'diagram', count: 5, marks: 5 },
-            { type: 'numerical', count: 5, marks: 5 },
-          ]);
-          setDueDate(getFormattedDate(1));
-          setAdditionalInfo('');
-          setUploadedFiles([]);
-        }, 700);
-      }
-    }
-    return () => clearTimeout(timer);
-  }, [isGenerating, generationStep]);
 
   // Helper: parse DD-MM-YYYY → timestamp for sorting (defined before early returns so useMemo is always called)
   const parseDate = (s: string) => {
@@ -239,20 +198,99 @@ export default function Home() {
     }
   };
 
-  const triggerGeneration = () => {
+  const triggerGeneration = async () => {
     if (!form.title.trim()) {
       alert('Please enter an assignment title.');
       return;
     }
-    setGenerationStep(0);
+    
     setIsGenerating(true);
+    setGenerationStep(0);
+
+    const payload = {
+      title: form.title,
+      subject: form.subject,
+      difficulty: form.difficulty.toLowerCase() as "easy" | "medium" | "hard",
+      timeLimit: Number(form.timeLimit),
+      dueDate: dueDate,
+      questionRows: questionRows,
+      additionalInfo: additionalInfo,
+    };
+
+    const res = await api.generateAssignment(payload);
+    if (!res.success || !res.data) {
+      alert(res.error || 'Failed to start generation');
+      setIsGenerating(false);
+      return;
+    }
+
+    const { assignmentId } = res.data as any;
+
+    if (!user) return;
+    // Connect to websocket to listen for job progress and completion
+    socketService.connect(process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080");
+    
+    // Subscribe to events for our user
+    socketService.emit('subscribe', { userId: user._id });
+
+    const unsubProgress = socketService.on('job:progress', (data: any) => {
+      if (data.assignmentId === assignmentId) {
+        setGenerationStep(data.step);
+      }
+    });
+
+    const unsubDone = socketService.on('job:done', (data: any) => {
+      if (data.assignmentId === assignmentId) {
+        unsubProgress();
+        unsubDone();
+        unsubFailed();
+        setIsGenerating(false);
+        setShowCreateModal(false);
+        
+        // Reset form
+        setForm({
+          title: '',
+          subject: 'Physics',
+          points: 100,
+          timeLimit: 60,
+          difficulty: 'Medium',
+          questionTypes: ['mcq'],
+        });
+        setQuestionRows([
+          { type: 'mcq', count: 4, marks: 1 },
+          { type: 'short', count: 3, marks: 2 },
+          { type: 'diagram', count: 5, marks: 5 },
+          { type: 'numerical', count: 5, marks: 5 },
+        ]);
+        setDueDate(getFormattedDate(1));
+        setAdditionalInfo('');
+        setUploadedFiles([]);
+        
+        router.push(`/output/${assignmentId}`);
+      }
+    });
+
+    const unsubFailed = socketService.on('job:failed', (data: any) => {
+      if (data.assignmentId === assignmentId) {
+        unsubProgress();
+        unsubDone();
+        unsubFailed();
+        setIsGenerating(false);
+        alert(data.error || 'Generation failed.');
+      }
+    });
   };
 
-  const handleDeleteAssignment = (id: string, e: React.MouseEvent) => {
+  const handleDeleteAssignment = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const confirmed = confirm('Are you sure you want to delete this assignment?');
     if (confirmed) {
-      saveAssignments(assignments.filter((a) => a.id !== id));
+      const res = await api.deleteAssignment(id);
+      if (res.success) {
+        fetchAssignments();
+      } else {
+        alert(res.error || 'Failed to delete assignment');
+      }
       setActiveMenuId(null);
     }
   };

@@ -33,7 +33,7 @@ export const api = {
   /**
    * Generates a question paper based on the current assignment config
    */
-  async generateAssignment(config: Omit<Assignment, "questions" | "totalPoints">): Promise<ApiResponse<Assignment>> {
+  async generateAssignment(config: any): Promise<ApiResponse<any>> {
     try {
       const response = await authenticatedFetch(`${API_BASE_URL}/assignments/generate`, {
         method: "POST",
@@ -104,6 +104,48 @@ export const api = {
       return {
         success: false,
         error: error.message || "Failed to upload reference material.",
+      };
+    }
+  },
+
+  /**
+   * Fetches all assignments for the logged-in user
+   */
+  async listAssignments(): Promise<ApiResponse<any[]>> {
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/assignments`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const resData = await response.json();
+      return { success: true, data: resData.data };
+    } catch (error: any) {
+      console.error("API listAssignments error:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to fetch assignments.",
+      };
+    }
+  },
+
+  /**
+   * Deletes an assignment by ID
+   */
+  async deleteAssignment(id: string): Promise<ApiResponse<{ message: string }>> {
+    try {
+      const response = await authenticatedFetch(`${API_BASE_URL}/assignments/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const resData = await response.json();
+      return { success: true, data: resData };
+    } catch (error: any) {
+      console.error("API deleteAssignment error:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to delete assignment.",
       };
     }
   },
