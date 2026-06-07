@@ -113,7 +113,7 @@ export default function Home() {
         difficulty: a.difficulty,
         questionTypes: a.questionRows ? Array.from(new Set(a.questionRows.map((r: any) => r.type))) : [],
         createdAt: a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-GB').replace(/\//g, '-') : getFormattedDate(0),
-        dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString('en-GB').replace(/\//g, '-') : getFormattedDate(1),
+        dueDate: a.dueDate || getFormattedDate(1),
         status: a.status === 'completed' ? 'Generated' : 'Active',
       }));
       setAssignments(mapped);
