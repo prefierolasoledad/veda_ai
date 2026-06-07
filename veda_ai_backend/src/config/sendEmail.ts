@@ -11,14 +11,14 @@ export const sendEmail = async ({
   html?: string;
   text?: string;
 }) => {
-  // Create a transporter using Gmail's SMTP server
+  // Create a transporter using SMTP settings from .env
   const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465, // Use 465 for secure connection, Railway allows this port
-    secure: true, 
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT) || 465, // Default to 465 if not provided
+    secure: true, // Use SSL
     auth: {
-      user: process.env.EMAIL_USER, // Your Gmail address
-      pass: process.env.EMAIL_APP_PASSWORD, // Your Gmail App Password
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_APP_PASSWORD,
     },
   });
 
