@@ -67,7 +67,7 @@ export default function Home() {
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [form, setForm] = useState({
     title: '',
-    subject: 'Physics',
+    subject: '',
     points: 100,
     timeLimit: 60,
     difficulty: 'Medium',
@@ -91,20 +91,7 @@ export default function Home() {
   const totalQuestions = questionRows.reduce((sum, r) => sum + r.count, 0);
   const totalMarks = questionRows.reduce((sum, r) => sum + r.count * r.marks, 0);
 
-  // Build subject list from user profile, with fallback defaults
-  const FALLBACK_SUBJECTS = ['Physics', 'Chemistry', 'Mathematics', 'Computer Science', 'English Literature'];
-  const subjectOptions = (user?.subjects && user.subjects.length > 0) ? user.subjects : FALLBACK_SUBJECTS;
-
-  // Keep form.subject in sync when user's subjects change
-  useEffect(() => {
-    if (subjectOptions.length > 0) {
-      setForm((prev) => ({
-        ...prev,
-        subject: subjectOptions.includes(prev.subject) ? prev.subject : subjectOptions[0],
-      }));
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.subjects]);
+  // Removed hardcoded fallback subjects and useEffect that forces 'Physics'
 
   const generationSteps = [
     'Parsing reference materials...',
@@ -279,7 +266,7 @@ export default function Home() {
       // Reset form
       setForm({
         title: '',
-        subject: 'Physics',
+        subject: '',
         points: 100,
         timeLimit: 60,
         difficulty: 'Medium',
@@ -775,6 +762,22 @@ export default function Home() {
                       value={form.title}
                       onChange={handleFormChange}
                       placeholder="e.g. Quiz on DSA"
+                      required
+                      className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 focus:outline-hidden focus:border-[#ff7a59] focus:ring-2 focus:ring-[#ff7a59]/10 rounded-2xl px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 transition-all font-medium"
+                    />
+                  </div>
+
+                  {/* Subject Field */}
+                  <div>
+                    <label className="block text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2">
+                      Subject
+                    </label>
+                    <input
+                      type="text"
+                      name="subject"
+                      value={form.subject}
+                      onChange={handleFormChange}
+                      placeholder="e.g. DBMS, Physics, Math"
                       required
                       className="w-full bg-zinc-50 border border-zinc-200 hover:border-zinc-300 focus:outline-hidden focus:border-[#ff7a59] focus:ring-2 focus:ring-[#ff7a59]/10 rounded-2xl px-4 py-3 text-sm text-zinc-900 placeholder-zinc-400 transition-all font-medium"
                     />
