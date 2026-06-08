@@ -47,7 +47,8 @@ FRONTEND_URL=http://localhost:3000
 
 #### **Frontend (`veda_ai/.env.example`)**
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:5000
+# The backend URL that Next.js will proxy requests to (resolves CORS and cookie issues)
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
 NEXT_PUBLIC_WS_URL=ws://localhost:8080
 ```
 
@@ -72,7 +73,7 @@ Teacher
    ▼
 Next.js Frontend (Zustand, Websockets)
    │
-   ▼ (REST Request)
+   ▼ (Next.js API Proxy Rewrite)
 Express API Gateway
    │
    ▼ (Job Enqueued)
@@ -132,7 +133,7 @@ flowchart TD
     H[WebSocket Server]:::ws
 
     %% Connections
-    A -->|1. REST Request| B
+    A -->|1. Proxied REST Request| B
     B -->|2. Create Pending Paper| C
     B -->|3. Enqueue Job| D
     D -->|4. Job Store| E
@@ -143,6 +144,10 @@ flowchart TD
     F -->|9. Pushes Job Updates| H
     H -->|10. Real-time WS Progress| A
 ```
+
+### Next.js API Proxy (CORS & Cookie Solution)
+Veda AI utilizes Next.js API proxy rewrites (configured in `next.config.ts`) to route frontend requests (e.g., `/api/login`) directly to the backend (`http://localhost:5000/api/login`). 
+This guarantees that the browser views the frontend and backend as the exact same origin, which natively solves cross-origin restrictions and allows strict `HttpOnly` and `SameSite=Strict` session cookies to work flawlessly on strict mobile browsers (like iOS Safari with Intelligent Tracking Prevention).
 
 ---
 
@@ -291,7 +296,7 @@ copy .env.example .env.local
 npm run dev
 ```
 
-The frontend will run on `http://localhost:3000` and communicate with the backend running on `http://localhost:5000`.
+The frontend will run on `http://localhost:3000` and communicate with the backend running on `http://localhost:5000` using the Next.js API Proxy (configured in `next.config.ts`).
 
 ---
 
